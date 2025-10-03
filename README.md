@@ -1,73 +1,109 @@
-# Welcome to your Lovable project
+## Tele Reach Hub – Frontend Telegram Outreach Manager (Mock)
 
-## Project info
+A small web app to automate and manage Telegram outreach across multiple accounts. This project uses a fully mocked datasource and scheduler to simulate campaigns, rate limiting, and message queues.
 
-**URL**: https://lovable.dev/projects/d710e8d1-f6ab-4173-8ef1-5bc264985fd2
+### Quick Start
 
-## How can I edit this code?
+1) Prerequisites
+- Node 18+ and pnpm or npm
 
-There are several ways of editing your application.
+2) Install
+```bash
+pnpm install
+# or
+npm install
+```
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/d710e8d1-f6ab-4173-8ef1-5bc264985fd2) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+3) Run dev server
+```bash
+pnpm dev
+# or
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+4) Tests
+```bash
+pnpm test
+# or
+npm test
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Tech Stack
+- React + Vite + TypeScript
+- TailwindCSS + shadcn/ui
+- React Router
+- TanStack Query (light footprint prepared)
+- Recharts for charts
+- Vitest for unit tests
 
-**Use GitHub Codespaces**
+### Core Features Implemented
+- Mock sign-in screen; simple `AuthContext` with localStorage persistence
+- Multi-account management with per-account settings drawer
+- Templates and Prompts CRUD (activate, default, delete)
+- Campaigns: create, start, pause, resume, cancel
+- Message queue visualization with statuses (queued, sending, sent, failed)
+- Manual “Send Now” with optimistic update and rollback
+- Search and filters for campaigns and accounts
+- Stats dashboard (KPI tiles, charts) that reflect mock data and queue progress
+- Local persistence (accounts, templates, prompts, campaigns, messages) via localStorage
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Project Structure (selected)
+- `src/contexts/AppContext.tsx`: In-memory store, persistence, and queue scheduler
+- `src/contexts/AuthContext.tsx`: Mock auth state and persistence
+- `src/pages/Index.tsx`: Sign-in and dashboard gate
+- `src/pages/Accounts.tsx`: Accounts list, search, settings
+- `src/pages/Templates.tsx`: Templates & Prompts tabs and dialogs
+- `src/pages/Campaigns.tsx`: Campaign list, search/filter, controls, manual send
+- `src/pages/Dashboard.tsx`: KPIs and charts
+- `src/lib/mockData.ts`: Seed data
+- `src/lib/rules.ts`: Pure behavior rules for can-send checks
+- `src/lib/rules.test.ts`: Vitest unit tests
 
-## What technologies are used for this project?
+### Behavior Rules Simulated
+A message can send only if:
+- Account is Connected
+- `sentToday < dailyLimit`
+- Outside quiet hours (22:00–08:00) if enabled
+- Respect `delaySeconds` since that account’s last send
+- Campaign is Running
 
-This project is built with:
+Enforcement occurs in a scheduler loop (1s tick) within `AppContext`, moving queued → sending → sent/failed, updating counters and timestamps. Manual “Send Now” follows the same rules and uses optimistic UI with rollback on failure.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Decisions & Trade-offs
+- Mocked Scheduler in FE: Implemented inside `AppContext` to keep everything client-side and observable. Trade-off: not suitable for real-time multi-user; perfect for demo.
+- localStorage for Persistence: Simple and zero-dependency. Trade-off: no multi-device sync; clear browser storage to reset.
+- Optimistic Updates: Manual send increments counters immediately, then rolls back on failure. Trade-off: short window where stats can temporarily overshoot.
+- Minimal Global State: Avoided heavyweight state libs; React Context + local state is enough for this scale.
+- Time & Simplicity over Completeness: Queue and stats focus on core behaviors; not every edge-case or metric is modeled.
 
-## How can I deploy this project?
+### How to Use
+1) Sign In on the landing page (mocked). You’ll be redirected to the dashboard.
+2) Accounts: connect accounts, edit per-account settings (delay, daily limit, template/prompt, quiet hours).
+3) Templates & Prompts: create, edit, set active/default.
+4) Campaigns: create a campaign, then Start. Use Pause/Resume/Cancel. Use Send Now for a manual send respecting account rules.
+5) Dashboard: observe KPIs and charts as messages process.
 
-Simply open [Lovable](https://lovable.dev/projects/d710e8d1-f6ab-4173-8ef1-5bc264985fd2) and click on Share -> Publish.
+### Testing
+- Run `npm test` or `pnpm test` to execute Vitest.
+- Unit tests cover the can-send rules in `src/lib/rules.test.ts`.
 
-## Can I connect a custom domain to my Lovable project?
+### Known Limitations
+- No backend or real Telegram integration.
+- Single-user, single-tab expectation. Opening multiple tabs can cause race-y persistence updates.
+- Quiet hours are based on the client’s local time.
+- Charts are illustrative and based on snapshots, not full time-series aggregation.
 
-Yes, you can!
+### Future Improvements (Stretch)
+- CSV import for contacts and better queue visualization with timelines per message.
+- WebSocket mock for richer live updates.
+- Real Telegram API integration and backend scheduler.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Scripts
+- `dev`: start Vite dev server
+- `build`: production build
+- `preview`: preview prod build
+- `test`: run Vitest
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Resetting Data
+Clear `localStorage` keys:
+`trh_accounts`, `trh_templates`, `trh_prompts`, `trh_campaigns`, `trh_messages`, `trh_authed`, `trh_user`.

@@ -1,17 +1,21 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Plus, Play, Pause, StopCircle } from 'lucide-react';
+import { Plus, Play, Pause, StopCircle, Search, Send } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { CampaignStatus } from '@/types';
 import { CampaignDialog } from '@/components/campaigns/CampaignDialog';
 import { toast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function Campaigns() {
-  const { campaigns, startCampaign, pauseCampaign, resumeCampaign, cancelCampaign, messages } = useApp();
+  const { campaigns, accounts, startCampaign, pauseCampaign, resumeCampaign, cancelCampaign, messages, addMessage, updateMessage, updateCampaign, updateAccount } = useApp();
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | CampaignStatus>('all');
 
   const handleStart = (id: string, name: string) => {
     startCampaign(id);
@@ -43,6 +47,82 @@ export default function Campaigns() {
       title: "Campaign cancelled",
       description: `"${name}" has been stopped`,
     });
+  };
+
+  const filteredCampaigns = useMemo(() => {
+    return campaigns.filter(c => {
+      const matchText = c.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchStatus = statusFilter === 'all' ? true : c.status === statusFilter;
+      return matchText && matchStatus;
+    });
+  }, [campaigns, searchQuery, statusFilter]);
+
+  const canSendFromAccount = (accountId: string) => {
+    const acc = accounts.find(a => a.id === accountId);
+    if (!acc) return false;
+    if (acc.status !== 'connected') return false;
+    if (acc.sentToday >= acc.dailyLimit) return false;
+    const hour = new Date().getHours();
+    if (acc.settings.respectQuietHours && (hour >= 22 || hour < 8)) return false;
+    const last = acc.settings.lastSentAt ? new Date(acc.settings.lastSentAt as any) : undefined;
+    if (last) {
+      const elapsed = Date.now() - last.getTime();
+      if (elapsed < acc.settings.delaySeconds * 1000) return false;
+    }
+    return true;
+  };
+
+  const handleManualSend = (campaignId: string) => {
+    const campaign = campaigns.find(c => c.id === campaignId);
+    if (!campaign) return;
+    if (campaign.status !== 'running') {
+      toast({ title: 'Cannot send', description: 'Campaign is not running', variant: 'destructive' });
+      return;
+    }
+    const eligibleAccountId = campaign.accountIds.find(canSendFromAccount);
+    if (!eligibleAccountId) {
+      toast({ title: 'No eligible account', description: 'All accounts are ineligible right now', variant: 'destructive' });
+      return;
+    }
+
+    // optimistic updates: increment sent and account sentToday, add sending message
+    updateCampaign(campaignId, { sentCount: campaign.sentCount + 1 });
+    const acc = accounts.find(a => a.id === eligibleAccountId)!;
+    updateAccount(acc.id, { sentToday: Math.min(acc.dailyLimit, acc.sentToday + 1), settings: { ...acc.settings, lastSentAt: new Date() as any } });
+
+    const optimistic = {
+      campaignId,
+      accountId: eligibleAccountId,
+      recipientName: 'Manual Recipient',
+      recipientCompany: 'Manual Company',
+      status: 'sending' as const,
+      scheduledFor: new Date(),
+      sentAt: null,
+      errorMessage: null,
+    };
+    addMessage(optimistic);
+
+    // capture rollback snapshots
+    const prevSent = campaign.sentCount;
+    const prevSentToday = acc.sentToday;
+
+    const shouldFail = Math.random() < 0.15;
+    setTimeout(() => {
+      // find the latest message we just added (approx by accountId + status sending)
+      const latest = messages.find(m => m.campaignId === campaignId && m.accountId === eligibleAccountId && m.status === 'sending');
+      if (!latest) return;
+
+      if (shouldFail) {
+        updateMessage(latest.id, { status: 'failed', errorMessage: 'Mock send failed' });
+        // rollback optimistic counters
+        updateCampaign(campaignId, { sentCount: prevSent });
+        updateAccount(acc.id, { sentToday: prevSentToday, settings: { ...acc.settings } });
+        toast({ title: 'Send failed', description: 'Message failed to send. Changes rolled back.', variant: 'destructive' });
+      } else {
+        updateMessage(latest.id, { status: 'sent', sentAt: new Date(), errorMessage: null });
+        toast({ title: 'Message sent', description: `Sent via @${acc.handle}` });
+      }
+    }, 600 + Math.random() * 800);
   };
 
   const getStatusColor = (status: CampaignStatus) => {
@@ -80,10 +160,34 @@ export default function Campaigns() {
       </div>
 
       <div className="space-y-4">
-        {campaigns.length === 0 ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input className="pl-8" placeholder="Search campaigns..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            </div>
+          </div>
+          <div className="w-full sm:w-48">
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="running">Running</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {filteredCampaigns.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <p className="text-muted-foreground mb-4">No campaigns created yet</p>
+              <p className="text-muted-foreground mb-4">No campaigns match your filters</p>
               <Button onClick={() => setCampaignDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Your First Campaign
@@ -91,7 +195,7 @@ export default function Campaigns() {
             </CardContent>
           </Card>
         ) : (
-          campaigns.map((campaign) => {
+          filteredCampaigns.map((campaign) => {
             const progress = campaign.targetCount > 0 
               ? (campaign.sentCount / campaign.targetCount) * 100 
               : 0;
@@ -136,6 +240,12 @@ export default function Campaigns() {
                           Start
                         </Button>
                       ) : null}
+                      {campaign.status === 'running' && (
+                        <Button variant="default" size="sm" onClick={() => handleManualSend(campaign.id)}>
+                          <Send className="h-4 w-4 mr-2" />
+                          Send Now
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
