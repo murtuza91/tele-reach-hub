@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/store/hooks';
-import Index from '@/pages/Index';
+import Index from '@/views/Index';
 
 export default function HomePage() {
   const router = useRouter();
