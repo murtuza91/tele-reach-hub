@@ -4,7 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Plus, Play, Pause, StopCircle, Search, Send } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { startCampaign, pauseCampaign, resumeCampaign, cancelCampaign, updateCampaign } from '@/store/slices/campaignsSlice';
+import { updateAccount } from '@/store/slices/accountsSlice';
+import { addMessage, updateMessage } from '@/store/slices/messagesSlice';
 import { CampaignStatus } from '@/types';
 import { CampaignDialog } from '@/components/campaigns/CampaignDialog';
 import { toast } from '@/hooks/use-toast';
@@ -12,13 +15,16 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function Campaigns() {
-  const { campaigns, accounts, startCampaign, pauseCampaign, resumeCampaign, cancelCampaign, messages, addMessage, updateMessage, updateCampaign, updateAccount } = useApp();
+  const dispatch = useAppDispatch();
+  const campaigns = useAppSelector((state) => state.campaigns.items);
+  const accounts = useAppSelector((state) => state.accounts.items);
+  const messages = useAppSelector((state) => state.messages.items);
   const [campaignDialogOpen, setCampaignDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CampaignStatus>('all');
 
   const handleStart = (id: string, name: string) => {
-    startCampaign(id);
+    dispatch(startCampaign(id));
     toast({
       title: "Campaign started",
       description: `"${name}" is now running`,
@@ -26,7 +32,7 @@ export default function Campaigns() {
   };
 
   const handlePause = (id: string, name: string) => {
-    pauseCampaign(id);
+    dispatch(pauseCampaign(id));
     toast({
       title: "Campaign paused",
       description: `"${name}" has been paused`,
@@ -34,7 +40,7 @@ export default function Campaigns() {
   };
 
   const handleResume = (id: string, name: string) => {
-    resumeCampaign(id);
+    dispatch(resumeCampaign(id));
     toast({
       title: "Campaign resumed",
       description: `"${name}" is now running`,
@@ -42,7 +48,7 @@ export default function Campaigns() {
   };
 
   const handleCancel = (id: string, name: string) => {
-    cancelCampaign(id);
+    dispatch(cancelCampaign(id));
     toast({
       title: "Campaign cancelled",
       description: `"${name}" has been stopped`,
@@ -50,7 +56,7 @@ export default function Campaigns() {
   };
 
   const filteredCampaigns = useMemo(() => {
-    return campaigns.filter(c => {
+    return campaigns.filter((c: { name: string; status: CampaignStatus }) => {
       const matchText = c.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchStatus = statusFilter === 'all' ? true : c.status === statusFilter;
       return matchText && matchStatus;
@@ -58,12 +64,13 @@ export default function Campaigns() {
   }, [campaigns, searchQuery, statusFilter]);
 
   const canSendFromAccount = (accountId: string) => {
-    const acc = accounts.find(a => a.id === accountId);
+    const acc = accounts.find((a: { id: string }) => a.id === accountId);
     if (!acc) return false;
     if (acc.status !== 'connected') return false;
     if (acc.sentToday >= acc.dailyLimit) return false;
     const hour = new Date().getHours();
     if (acc.settings.respectQuietHours && (hour >= 22 || hour < 8)) return false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const last = acc.settings.lastSentAt ? new Date(acc.settings.lastSentAt as any) : undefined;
     if (last) {
       const elapsed = Date.now() - last.getTime();
@@ -73,22 +80,23 @@ export default function Campaigns() {
   };
 
   const handleManualSend = (campaignId: string) => {
-    const campaign = campaigns.find(c => c.id === campaignId);
+    const campaign = campaigns.find((c: { id: string }) => c.id === campaignId);
     if (!campaign) return;
     if (campaign.status !== 'running') {
       toast({ title: 'Cannot send', description: 'Campaign is not running', variant: 'destructive' });
       return;
     }
-    const eligibleAccountId = campaign.accountIds.find(canSendFromAccount);
+    const eligibleAccountId = campaign.accountIds.find((id: string) => canSendFromAccount(id));
     if (!eligibleAccountId) {
       toast({ title: 'No eligible account', description: 'All accounts are ineligible right now', variant: 'destructive' });
       return;
     }
 
     // optimistic updates: increment sent and account sentToday, add sending message
-    updateCampaign(campaignId, { sentCount: campaign.sentCount + 1 });
-    const acc = accounts.find(a => a.id === eligibleAccountId)!;
-    updateAccount(acc.id, { sentToday: Math.min(acc.dailyLimit, acc.sentToday + 1), settings: { ...acc.settings, lastSentAt: new Date() as any } });
+    dispatch(updateCampaign({ id: campaignId, updates: { sentCount: campaign.sentCount + 1 } }));
+    const acc = accounts.find((a: { id: string }) => a.id === eligibleAccountId)!;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    dispatch(updateAccount({ id: acc.id, updates: { sentToday: Math.min(acc.dailyLimit, acc.sentToday + 1), settings: { ...acc.settings, lastSentAt: new Date() as any } } }));
 
     const optimistic = {
       campaignId,
@@ -100,7 +108,7 @@ export default function Campaigns() {
       sentAt: null,
       errorMessage: null,
     };
-    addMessage(optimistic);
+    dispatch(addMessage(optimistic));
 
     // capture rollback snapshots
     const prevSent = campaign.sentCount;
@@ -109,17 +117,17 @@ export default function Campaigns() {
     const shouldFail = Math.random() < 0.15;
     setTimeout(() => {
       // find the latest message we just added (approx by accountId + status sending)
-      const latest = messages.find(m => m.campaignId === campaignId && m.accountId === eligibleAccountId && m.status === 'sending');
+      const latest = messages.find((m: { campaignId: string; accountId: string; status: string }) => m.campaignId === campaignId && m.accountId === eligibleAccountId && m.status === 'sending');
       if (!latest) return;
 
       if (shouldFail) {
-        updateMessage(latest.id, { status: 'failed', errorMessage: 'Mock send failed' });
+        dispatch(updateMessage({ id: latest.id, updates: { status: 'failed', errorMessage: 'Mock send failed' } }));
         // rollback optimistic counters
-        updateCampaign(campaignId, { sentCount: prevSent });
-        updateAccount(acc.id, { sentToday: prevSentToday, settings: { ...acc.settings } });
+        dispatch(updateCampaign({ id: campaignId, updates: { sentCount: prevSent } }));
+        dispatch(updateAccount({ id: acc.id, updates: { sentToday: prevSentToday, settings: { ...acc.settings } } }));
         toast({ title: 'Send failed', description: 'Message failed to send. Changes rolled back.', variant: 'destructive' });
       } else {
-        updateMessage(latest.id, { status: 'sent', sentAt: new Date(), errorMessage: null });
+        dispatch(updateMessage({ id: latest.id, updates: { status: 'sent', sentAt: new Date(), errorMessage: null } }));
         toast({ title: 'Message sent', description: `Sent via @${acc.handle}` });
       }
     }, 600 + Math.random() * 800);
@@ -168,6 +176,7 @@ export default function Campaigns() {
             </div>
           </div>
           <div className="w-full sm:w-48">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by status" />
@@ -199,7 +208,7 @@ export default function Campaigns() {
             const progress = campaign.targetCount > 0 
               ? (campaign.sentCount / campaign.targetCount) * 100 
               : 0;
-            const campaignMessages = messages.filter(m => m.campaignId === campaign.id);
+            const campaignMessages = messages.filter((m: { campaignId: string }) => m.campaignId === campaign.id);
 
             return (
               <Card key={campaign.id}>

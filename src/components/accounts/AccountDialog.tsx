@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TelegramAccount, AccountStatus } from '@/types';
-import { useApp } from '@/contexts/AppContext';
+import { useAppDispatch } from '@/store/hooks';
+import { addAccount, updateAccount } from '@/store/slices/accountsSlice';
 import { toast } from '@/hooks/use-toast';
 
 interface AccountDialogProps {
@@ -14,7 +15,7 @@ interface AccountDialogProps {
 }
 
 export function AccountDialog({ open, onOpenChange, account }: AccountDialogProps) {
-  const { addAccount, updateAccount } = useApp();
+  const dispatch = useAppDispatch();
   const [formData, setFormData] = useState({
     handle: '',
     displayName: '',
@@ -50,17 +51,20 @@ export function AccountDialog({ open, onOpenChange, account }: AccountDialogProp
     }
 
     if (account) {
-      updateAccount(account.id, {
-        handle: formData.handle,
-        displayName: formData.displayName,
-        phoneNumber: formData.phoneNumber || undefined,
-      });
+      dispatch(updateAccount({
+        id: account.id,
+        updates: {
+          handle: formData.handle,
+          displayName: formData.displayName,
+          phoneNumber: formData.phoneNumber || undefined,
+        },
+      }));
       toast({
         title: "Account updated",
         description: `@${formData.handle} has been updated successfully`,
       });
     } else {
-      addAccount({
+      dispatch(addAccount({
         handle: formData.handle,
         displayName: formData.displayName,
         phoneNumber: formData.phoneNumber || undefined,
@@ -73,7 +77,7 @@ export function AccountDialog({ open, onOpenChange, account }: AccountDialogProp
           activePromptId: null,
           respectQuietHours: true,
         },
-      });
+      }));
       toast({
         title: "Account connected",
         description: `@${formData.handle} has been connected successfully`,

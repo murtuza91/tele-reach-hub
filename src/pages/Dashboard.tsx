@@ -20,7 +20,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { mockAccounts, mockCampaigns } from "@/lib/mockData";
+import { useAppSelector } from "@/store/hooks";
 
 const sendsTrendData = [
   { date: "Mon", sends: 45 },
@@ -32,21 +32,25 @@ const sendsTrendData = [
   { date: "Sun", sends: 45 },
 ];
 
-const accountPerformanceData = mockAccounts.map((acc) => ({
-  name: acc.handle,
-  sends: acc.sentToday,
-  limit: acc.dailyLimit,
-}));
-
 const Dashboard = () => {
+  const accounts = useAppSelector((state) => state.accounts.items);
+  const campaigns = useAppSelector((state) => state.campaigns.items);
+  const messages = useAppSelector((state) => state.messages.items);
+
   const stats = {
     today: 156,
     thisWeek: 603,
     thisMonth: 2547,
-    activeAccounts: mockAccounts.filter((a) => a.status === "connected").length,
-    activeCampaigns: mockCampaigns.filter((c) => c.status === "running").length,
-    queuedMessages: mockCampaigns.reduce((sum, c) => sum + c.queuedCount, 0),
+    activeAccounts: accounts.filter((a) => a.status === "connected").length,
+    activeCampaigns: campaigns.filter((c) => c.status === "running").length,
+    queuedMessages: campaigns.reduce((sum, c) => sum + c.queuedCount, 0),
   };
+
+  const accountPerformanceData = accounts.map((acc) => ({
+    name: acc.handle,
+    sends: acc.sentToday,
+    limit: acc.dailyLimit,
+  }));
 
   return (
     <div className="space-y-6">
@@ -68,13 +72,13 @@ const Dashboard = () => {
           title="Active Accounts"
           value={stats.activeAccounts}
           icon={Users}
-          description={`${mockAccounts.length} total accounts`}
+          description={`${accounts.length} total accounts`}
         />
         <StatsCard
           title="Active Campaigns"
           value={stats.activeCampaigns}
           icon={Target}
-          description={`${mockCampaigns.length} total campaigns`}
+          description={`${campaigns.length} total campaigns`}
         />
         <StatsCard
           title="Messages This Week"
@@ -144,7 +148,7 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {mockCampaigns.map((campaign) => (
+            {campaigns.map((campaign) => (
               <div
                 key={campaign.id}
                 className="flex items-center justify-between border-b border-border pb-4 last:border-0"

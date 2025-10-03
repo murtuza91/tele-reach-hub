@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { CopyTemplate } from '@/types';
-import { useApp } from '@/contexts/AppContext';
+import { useAppDispatch } from '@/store/hooks';
+import { addTemplate, updateTemplate } from '@/store/slices/templatesSlice';
 import { toast } from '@/hooks/use-toast';
 
 interface TemplateDialogProps {
@@ -16,7 +17,7 @@ interface TemplateDialogProps {
 }
 
 export function TemplateDialog({ open, onOpenChange, template }: TemplateDialogProps) {
-  const { addTemplate, updateTemplate } = useApp();
+  const dispatch = useAppDispatch();
   const [formData, setFormData] = useState({
     title: '',
     body: '',
@@ -55,13 +56,13 @@ export function TemplateDialog({ open, onOpenChange, template }: TemplateDialogP
     }
 
     if (template) {
-      updateTemplate(template.id, formData);
+      dispatch(updateTemplate({ id: template.id, updates: formData }));
       toast({
         title: "Template updated",
         description: `"${formData.title}" has been updated successfully`,
       });
     } else {
-      addTemplate(formData);
+      dispatch(addTemplate(formData));
       toast({
         title: "Template created",
         description: `"${formData.title}" has been created successfully`,

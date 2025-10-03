@@ -53,6 +53,7 @@ describe('canSendFromAccountPure', () => {
   it('disallows when delay since last send not met', () => {
     const now = new Date('2025-01-01T12:01:00');
     const last = new Date('2025-01-01T12:00:30'); // 30s ago
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const acc = makeAccount({ settings: { ...makeAccount().settings, delaySeconds: 60, lastSentAt: last as any } });
     expect(canSendFromAccountPure(acc, now)).toBe(false);
   });
@@ -60,6 +61,7 @@ describe('canSendFromAccountPure', () => {
   it('allows when delay since last send met', () => {
     const now = new Date('2025-01-01T12:02:01');
     const last = new Date('2025-01-01T12:00:30'); // 91s ago
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const acc = makeAccount({ settings: { ...makeAccount().settings, delaySeconds: 60, lastSentAt: last as any } });
     expect(canSendFromAccountPure(acc, now)).toBe(true);
   });

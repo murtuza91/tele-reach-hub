@@ -133,6 +133,7 @@ export const mockMessages: OutreachMessage[] = Array.from({ length: 50 }, (_, i)
   accountId: ["acc-1", "acc-2", "acc-3"][i % 3],
   recipientName: `Contact ${i + 1}`,
   recipientCompany: `Company ${i + 1}`,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   status: (["sent", "queued", "sending", "failed"][i % 4]) as any,
   scheduledFor: new Date(Date.now() + i * 300000),
   sentAt: i % 4 === 0 ? new Date(Date.now() - i * 60000) : null,

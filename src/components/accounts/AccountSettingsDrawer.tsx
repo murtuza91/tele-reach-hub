@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TelegramAccount } from '@/types';
-import { useApp } from '@/contexts/AppContext';
+import { TelegramAccount, CopyTemplate, AIPrompt } from '@/types';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { updateAccount } from '@/store/slices/accountsSlice';
 import { toast } from '@/hooks/use-toast';
 
 interface AccountSettingsDrawerProps {
@@ -16,7 +17,9 @@ interface AccountSettingsDrawerProps {
 }
 
 export function AccountSettingsDrawer({ open, onOpenChange, account }: AccountSettingsDrawerProps) {
-  const { updateAccount, templates, prompts } = useApp();
+  const dispatch = useAppDispatch();
+  const templates = useAppSelector((state) => state.templates.items);
+  const prompts = useAppSelector((state) => state.prompts.items);
   const [formData, setFormData] = useState({
     dailyLimit: 100,
     delaySeconds: 60,
@@ -42,15 +45,19 @@ export function AccountSettingsDrawer({ open, onOpenChange, account }: AccountSe
     
     if (!account) return;
 
-    updateAccount(account.id, {
-      dailyLimit: formData.dailyLimit,
-      settings: {
-        delaySeconds: formData.delaySeconds,
-        activeTemplateId: formData.activeTemplateId,
-        activePromptId: formData.activePromptId,
-        respectQuietHours: formData.respectQuietHours,
+    dispatch(updateAccount({
+      id: account.id,
+      updates: {
+        dailyLimit: formData.dailyLimit,
+        settings: {
+          ...account.settings,
+          delaySeconds: formData.delaySeconds,
+          activeTemplateId: formData.activeTemplateId,
+          activePromptId: formData.activePromptId,
+          respectQuietHours: formData.respectQuietHours,
+        },
       },
-    });
+    }));
 
     toast({
       title: "Settings updated",
@@ -62,8 +69,8 @@ export function AccountSettingsDrawer({ open, onOpenChange, account }: AccountSe
 
   if (!account) return null;
 
-  const activeTemplates = templates.filter(t => t.isActive);
-  const activePrompts = prompts.filter(p => p.isActive);
+  const activeTemplates = templates.filter((t: CopyTemplate) => t.isActive);
+  const activePrompts = prompts.filter((p: AIPrompt) => p.isActive);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -126,7 +133,7 @@ export function AccountSettingsDrawer({ open, onOpenChange, account }: AccountSe
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None (use campaign default)</SelectItem>
-                  {activeTemplates.map(template => (
+                  {activeTemplates.map((template: CopyTemplate) => (
                     <SelectItem key={template.id} value={template.id}>
                       {template.title}
                     </SelectItem>
@@ -149,7 +156,7 @@ export function AccountSettingsDrawer({ open, onOpenChange, account }: AccountSe
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None (use campaign default)</SelectItem>
-                  {activePrompts.map(prompt => (
+                  {activePrompts.map((prompt: AIPrompt) => (
                     <SelectItem key={prompt.id} value={prompt.id}>
                       {prompt.title}
                     </SelectItem>

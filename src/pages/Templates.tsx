@@ -4,7 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, Edit, Trash2, Star } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { deleteTemplate, updateTemplate } from '@/store/slices/templatesSlice';
+import { deletePrompt, updatePrompt } from '@/store/slices/promptsSlice';
 import { TemplateDialog } from '@/components/templates/TemplateDialog';
 import { PromptDialog } from '@/components/templates/PromptDialog';
 import { CopyTemplate, AIPrompt } from '@/types';
@@ -21,7 +23,9 @@ import {
 import { toast } from '@/hooks/use-toast';
 
 export default function Templates() {
-  const { templates, prompts, deleteTemplate, deletePrompt, updateTemplate, updatePrompt } = useApp();
+  const dispatch = useAppDispatch();
+  const templates = useAppSelector((state) => state.templates.items);
+  const prompts = useAppSelector((state) => state.prompts.items);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [promptDialogOpen, setPromptDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CopyTemplate | undefined>();
@@ -55,13 +59,13 @@ export default function Templates() {
 
   const handleDelete = () => {
     if (deleteDialog.type === 'template') {
-      deleteTemplate(deleteDialog.id);
+      dispatch(deleteTemplate(deleteDialog.id));
       toast({
         title: "Template deleted",
         description: `"${deleteDialog.title}" has been removed`,
       });
     } else {
-      deletePrompt(deleteDialog.id);
+      dispatch(deletePrompt(deleteDialog.id));
       toast({
         title: "Prompt deleted",
         description: `"${deleteDialog.title}" has been removed`,
@@ -74,18 +78,18 @@ export default function Templates() {
     if (type === 'template') {
       templates.forEach(t => {
         if (t.id === id) {
-          updateTemplate(t.id, { isDefault: true });
+          dispatch(updateTemplate({ id: t.id, updates: { isDefault: true } }));
         } else if (t.isDefault) {
-          updateTemplate(t.id, { isDefault: false });
+          dispatch(updateTemplate({ id: t.id, updates: { isDefault: false } }));
         }
       });
       toast({ title: "Default template updated" });
     } else {
       prompts.forEach(p => {
         if (p.id === id) {
-          updatePrompt(p.id, { isDefault: true });
+          dispatch(updatePrompt({ id: p.id, updates: { isDefault: true } }));
         } else if (p.isDefault) {
-          updatePrompt(p.id, { isDefault: false });
+          dispatch(updatePrompt({ id: p.id, updates: { isDefault: false } }));
         }
       });
       toast({ title: "Default prompt updated" });

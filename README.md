@@ -1,109 +1,199 @@
-## Tele Reach Hub – Frontend Telegram Outreach Manager (Mock)
+# TeleReach Hub - Telegram Outreach Manager
 
-A small web app to automate and manage Telegram outreach across multiple accounts. This project uses a fully mocked datasource and scheduler to simulate campaigns, rate limiting, and message queues.
+A modern web application built with Next.js for managing multiple Telegram accounts and automating outreach campaigns.
 
-### Quick Start
+## Features
 
-1) Prerequisites
-- Node 18+ and pnpm or npm
+- **Multi-Account Management**: Connect and manage multiple Telegram accounts simultaneously
+- **Campaign Management**: Create, run, pause, and monitor outreach campaigns
+- **Template System**: Create reusable message templates with placeholder support
+- **AI Prompts**: Use AI prompts to enhance your outreach copy
+- **Rate Limiting**: Per-account daily limits and delays between messages
+- **Quiet Hours**: Respect recipient time zones with configurable quiet hours
+- **Real-time Dashboard**: Monitor sends, failures, and campaign progress
+- **Optimistic Updates**: Instant UI updates with automatic rollback on failure
 
-2) Install
+## Tech Stack
+
+- **Framework**: Next.js 15+ (App Router)
+- **State Management**: Redux Toolkit with localStorage persistence
+- **Styling**: Tailwind CSS
+- **UI Components**: shadcn/ui
+- **Charts**: Recharts
+- **Form Handling**: React Hook Form with Zod validation
+- **TypeScript**: Full type safety throughout the application
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+ or Bun
+- npm, yarn, or pnpm
+
+### Installation
+
+1. Clone the repository
 ```bash
-pnpm install
-# or
+git clone <repository-url>
+cd tele-reach-hub
+```
+
+2. Install dependencies
+```bash
 npm install
+# or
+yarn install
+# or
+pnpm install
 ```
 
-3) Run dev server
+3. Run the development server
 ```bash
-pnpm dev
-# or
 npm run dev
-```
-
-4) Tests
-```bash
-pnpm test
 # or
-npm test
+yarn dev
+# or
+pnpm dev
 ```
 
-### Tech Stack
-- React + Vite + TypeScript
-- TailwindCSS + shadcn/ui
-- React Router
-- TanStack Query (light footprint prepared)
-- Recharts for charts
-- Vitest for unit tests
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-### Core Features Implemented
-- Mock sign-in screen; simple `AuthContext` with localStorage persistence
-- Multi-account management with per-account settings drawer
-- Templates and Prompts CRUD (activate, default, delete)
-- Campaigns: create, start, pause, resume, cancel
-- Message queue visualization with statuses (queued, sending, sent, failed)
-- Manual “Send Now” with optimistic update and rollback
-- Search and filters for campaigns and accounts
-- Stats dashboard (KPI tiles, charts) that reflect mock data and queue progress
-- Local persistence (accounts, templates, prompts, campaigns, messages) via localStorage
+### Building for Production
 
-### Project Structure (selected)
-- `src/contexts/AppContext.tsx`: In-memory store, persistence, and queue scheduler
-- `src/contexts/AuthContext.tsx`: Mock auth state and persistence
-- `src/pages/Index.tsx`: Sign-in and dashboard gate
-- `src/pages/Accounts.tsx`: Accounts list, search, settings
-- `src/pages/Templates.tsx`: Templates & Prompts tabs and dialogs
-- `src/pages/Campaigns.tsx`: Campaign list, search/filter, controls, manual send
-- `src/pages/Dashboard.tsx`: KPIs and charts
-- `src/lib/mockData.ts`: Seed data
-- `src/lib/rules.ts`: Pure behavior rules for can-send checks
-- `src/lib/rules.test.ts`: Vitest unit tests
+```bash
+npm run build
+npm start
+```
 
-### Behavior Rules Simulated
-A message can send only if:
-- Account is Connected
-- `sentToday < dailyLimit`
-- Outside quiet hours (22:00–08:00) if enabled
-- Respect `delaySeconds` since that account’s last send
-- Campaign is Running
+## Project Structure
 
-Enforcement occurs in a scheduler loop (1s tick) within `AppContext`, moving queued → sending → sent/failed, updating counters and timestamps. Manual “Send Now” follows the same rules and uses optimistic UI with rollback on failure.
+```
+tele-reach-hub/
+├── src/
+│   ├── app/                    # Next.js app directory
+│   │   ├── (authenticated)/   # Protected routes
+│   │   ├── layout.tsx         # Root layout
+│   │   ├── page.tsx           # Home/login page
+│   │   ├── providers.tsx      # Redux & React Query providers
+│   │   └── globals.css        # Global styles
+│   ├── components/            # React components
+│   │   ├── accounts/          # Account management components
+│   │   ├── campaigns/         # Campaign management components
+│   │   ├── dashboard/         # Dashboard components
+│   │   ├── templates/         # Template & prompt components
+│   │   └── ui/                # shadcn/ui components
+│   ├── store/                 # Redux store
+│   │   ├── slices/           # Redux slices
+│   │   ├── middleware/       # Custom middleware
+│   │   ├── queueProcessor.ts # Campaign queue processor
+│   │   ├── store.ts          # Store configuration
+│   │   └── hooks.ts          # Typed Redux hooks
+│   ├── pages/                # Page components
+│   ├── lib/                  # Utilities and mock data
+│   └── types/                # TypeScript types
+├── public/                   # Static assets
+├── next.config.js           # Next.js configuration
+├── tailwind.config.ts       # Tailwind configuration
+└── tsconfig.json           # TypeScript configuration
+```
 
-### Decisions & Trade-offs
-- Mocked Scheduler in FE: Implemented inside `AppContext` to keep everything client-side and observable. Trade-off: not suitable for real-time multi-user; perfect for demo.
-- localStorage for Persistence: Simple and zero-dependency. Trade-off: no multi-device sync; clear browser storage to reset.
-- Optimistic Updates: Manual send increments counters immediately, then rolls back on failure. Trade-off: short window where stats can temporarily overshoot.
-- Minimal Global State: Avoided heavyweight state libs; React Context + local state is enough for this scale.
-- Time & Simplicity over Completeness: Queue and stats focus on core behaviors; not every edge-case or metric is modeled.
+## Key Decisions & Trade-offs
 
-### How to Use
-1) Sign In on the landing page (mocked). You’ll be redirected to the dashboard.
-2) Accounts: connect accounts, edit per-account settings (delay, daily limit, template/prompt, quiet hours).
-3) Templates & Prompts: create, edit, set active/default.
-4) Campaigns: create a campaign, then Start. Use Pause/Resume/Cancel. Use Send Now for a manual send respecting account rules.
-5) Dashboard: observe KPIs and charts as messages process.
+### State Management
 
-### Testing
-- Run `npm test` or `pnpm test` to execute Vitest.
-- Unit tests cover the can-send rules in `src/lib/rules.test.ts`.
+**Decision**: Redux Toolkit over Context API
+- **Rationale**: Better performance with large state trees, middleware support for localStorage sync, time-travel debugging
+- **Trade-off**: More boilerplate but better scalability and testability
 
-### Known Limitations
-- No backend or real Telegram integration.
-- Single-user, single-tab expectation. Opening multiple tabs can cause race-y persistence updates.
-- Quiet hours are based on the client’s local time.
-- Charts are illustrative and based on snapshots, not full time-series aggregation.
+### Data Persistence
 
-### Future Improvements (Stretch)
-- CSV import for contacts and better queue visualization with timelines per message.
-- WebSocket mock for richer live updates.
-- Real Telegram API integration and backend scheduler.
+**Decision**: localStorage with Redux middleware
+- **Rationale**: Simple setup, no backend required, instant persistence
+- **Trade-off**: Limited to 5-10MB, synchronous operations, no cross-device sync
 
-### Scripts
-- `dev`: start Vite dev server
-- `build`: production build
-- `preview`: preview prod build
-- `test`: run Vitest
+### Queue Processing
 
-### Resetting Data
-Clear `localStorage` keys:
-`trh_accounts`, `trh_templates`, `trh_prompts`, `trh_campaigns`, `trh_messages`, `trh_authed`, `trh_user`.
+**Decision**: Client-side interval-based processing
+- **Rationale**: Simple implementation, no backend infrastructure needed
+- **Trade-off**: Stops when browser closes, less reliable than server-side processing
+
+### UI Framework
+
+**Decision**: shadcn/ui + Tailwind CSS
+- **Rationale**: Highly customizable, production-ready components, excellent DX
+- **Trade-off**: Larger initial setup but better long-term maintainability
+
+### Form Handling
+
+**Decision**: React Hook Form + Zod
+- **Rationale**: Type-safe validation, excellent performance, minimal re-renders
+- **Trade-off**: Learning curve for Zod schema definitions
+
+## Features in Detail
+
+### Account Management
+- Connect multiple Telegram accounts
+- Configure per-account settings (daily limits, delays, quiet hours)
+- Monitor account status and usage in real-time
+
+### Campaign Management
+- Create campaigns with custom templates and AI prompts
+- Select specific accounts for each campaign
+- Control campaign state (draft, running, paused, completed)
+- Manual "send now" with optimistic updates and error rollback
+
+### Templates & Prompts
+- Create reusable message templates with placeholders
+- AI prompts to enhance message personalization
+- Set default templates and prompts
+
+### Dashboard
+- Real-time statistics (messages today/week/month)
+- Account performance charts
+- Campaign progress tracking
+- Recent activity feed
+
+## Testing
+
+Basic unit tests are included for core logic:
+
+```bash
+npm run test
+```
+
+## Mock API
+
+The application uses a mock API with seeded data:
+- 3 Telegram accounts (2 connected, 1 rate-limited)
+- 3 message templates
+- 2 AI prompts
+- 2 campaigns (1 running, 1 paused)
+- 50 simulated messages
+
+## Behavior Rules
+
+Messages can only be sent when:
+1. Account is connected
+2. Account is under daily limit
+3. Sufficient delay has passed since last send
+4. Outside of quiet hours (if enabled)
+5. Campaign is running
+
+## Future Enhancements
+
+- Backend API integration with real Telegram Bot API
+- Database persistence (PostgreSQL/MongoDB)
+- User authentication with sessions
+- Webhook support for delivery confirmations
+- Advanced analytics and reporting
+- A/B testing for templates
+- Contact list management
+- Reply tracking and conversation threads
+
+## License
+
+MIT
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.

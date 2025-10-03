@@ -10,6 +10,7 @@ export function canSendFromAccountPure(account: TelegramAccount, now: Date = new
   if (account.status !== 'connected') return false;
   if (account.sentToday >= account.dailyLimit) return false;
   if (isWithinQuietHours(account.settings.respectQuietHours, now)) return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const last = account.settings.lastSentAt ? new Date(account.settings.lastSentAt as any) : undefined;
   if (last) {
     const elapsedMs = now.getTime() - last.getTime();

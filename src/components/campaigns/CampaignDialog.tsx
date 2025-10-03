@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useApp } from '@/contexts/AppContext';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { addCampaign } from '@/store/slices/campaignsSlice';
 import { toast } from '@/hooks/use-toast';
-import { CampaignStatus } from '@/types';
+import { CampaignStatus, CopyTemplate, AIPrompt, TelegramAccount } from '@/types';
 
 interface CampaignDialogProps {
   open: boolean;
@@ -15,7 +16,10 @@ interface CampaignDialogProps {
 }
 
 export function CampaignDialog({ open, onOpenChange }: CampaignDialogProps) {
-  const { addCampaign, accounts, templates, prompts } = useApp();
+  const dispatch = useAppDispatch();
+  const accounts = useAppSelector((state) => state.accounts.items);
+  const templates = useAppSelector((state) => state.templates.items);
+  const prompts = useAppSelector((state) => state.prompts.items);
   const [formData, setFormData] = useState({
     name: '',
     templateId: '',
@@ -37,7 +41,7 @@ export function CampaignDialog({ open, onOpenChange }: CampaignDialogProps) {
       return;
     }
 
-    addCampaign({
+    dispatch(addCampaign({
       name: formData.name,
       status: 'draft' as CampaignStatus,
       templateId: formData.templateId,
@@ -49,7 +53,7 @@ export function CampaignDialog({ open, onOpenChange }: CampaignDialogProps) {
       failedCount: 0,
       startedAt: undefined,
       endedAt: undefined,
-    });
+    }));
 
     toast({
       title: "Campaign created",
@@ -68,9 +72,9 @@ export function CampaignDialog({ open, onOpenChange }: CampaignDialogProps) {
     onOpenChange(false);
   };
 
-  const activeTemplates = templates.filter(t => t.isActive);
-  const activePrompts = prompts.filter(p => p.isActive);
-  const connectedAccounts = accounts.filter(a => a.status === 'connected');
+  const activeTemplates = templates.filter((t: CopyTemplate) => t.isActive);
+  const activePrompts = prompts.filter((p: AIPrompt) => p.isActive);
+  const connectedAccounts = accounts.filter((a: TelegramAccount) => a.status === 'connected');
 
   const toggleAccount = (accountId: string) => {
     setFormData(prev => ({
@@ -112,7 +116,7 @@ export function CampaignDialog({ open, onOpenChange }: CampaignDialogProps) {
                   <SelectValue placeholder="Select template" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeTemplates.map(template => (
+                  {activeTemplates.map((template: CopyTemplate) => (
                     <SelectItem key={template.id} value={template.id}>
                       {template.title}
                     </SelectItem>
@@ -132,7 +136,7 @@ export function CampaignDialog({ open, onOpenChange }: CampaignDialogProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  {activePrompts.map(prompt => (
+                  {activePrompts.map((prompt: AIPrompt) => (
                     <SelectItem key={prompt.id} value={prompt.id}>
                       {prompt.title}
                     </SelectItem>
@@ -147,7 +151,7 @@ export function CampaignDialog({ open, onOpenChange }: CampaignDialogProps) {
                 {connectedAccounts.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No connected accounts available</p>
                 ) : (
-                  connectedAccounts.map(account => (
+                  connectedAccounts.map((account: TelegramAccount) => (
                     <div key={account.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={account.id}

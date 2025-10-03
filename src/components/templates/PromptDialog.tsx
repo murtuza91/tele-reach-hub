@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { AIPrompt } from '@/types';
-import { useApp } from '@/contexts/AppContext';
+import { useAppDispatch } from '@/store/hooks';
+import { addPrompt, updatePrompt } from '@/store/slices/promptsSlice';
 import { toast } from '@/hooks/use-toast';
 
 interface PromptDialogProps {
@@ -16,7 +17,7 @@ interface PromptDialogProps {
 }
 
 export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) {
-  const { addPrompt, updatePrompt } = useApp();
+  const dispatch = useAppDispatch();
   const [formData, setFormData] = useState({
     title: '',
     systemPrompt: '',
@@ -55,13 +56,13 @@ export function PromptDialog({ open, onOpenChange, prompt }: PromptDialogProps) 
     }
 
     if (prompt) {
-      updatePrompt(prompt.id, formData);
+      dispatch(updatePrompt({ id: prompt.id, updates: formData }));
       toast({
         title: "Prompt updated",
         description: `"${formData.title}" has been updated successfully`,
       });
     } else {
-      addPrompt(formData);
+      dispatch(addPrompt(formData));
       toast({
         title: "Prompt created",
         description: `"${formData.title}" has been created successfully`,

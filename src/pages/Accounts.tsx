@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Plus, Settings, Search } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppSelector } from '@/store/hooks';
 import { AccountStatus, TelegramAccount } from '@/types';
 import { AccountDialog } from '@/components/accounts/AccountDialog';
 import { AccountSettingsDrawer } from '@/components/accounts/AccountSettingsDrawer';
 
 export default function Accounts() {
-  const { accounts } = useApp();
+  const accounts = useAppSelector((state) => state.accounts.items);
   const [searchQuery, setSearchQuery] = useState('');
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
@@ -22,7 +22,7 @@ export default function Accounts() {
     setSettingsDrawerOpen(true);
   };
 
-  const filteredAccounts = accounts.filter(account =>
+  const filteredAccounts = accounts.filter((account: TelegramAccount) =>
     account.handle.toLowerCase().includes(searchQuery.toLowerCase()) ||
     account.displayName.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -69,7 +69,7 @@ export default function Accounts() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredAccounts.map((account) => {
+          {filteredAccounts.map((account: TelegramAccount) => {
             const usagePercentage = (account.sentToday / account.dailyLimit) * 100;
             return (
               <Card key={account.id}>
