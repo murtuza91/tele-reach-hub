@@ -21,11 +21,13 @@ const messagesSlice = createSlice({
   name: 'messages',
   initialState,
   reducers: {
-    addMessage: (state, action: PayloadAction<Omit<OutreachMessage, 'id'>>) => {
-      const newMessage: OutreachMessage = {
-        ...action.payload,
-        id: `msg_${Date.now()}_${Math.random()}`,
-      };
+    addMessage: (state, action: PayloadAction<OutreachMessage | Omit<OutreachMessage, 'id'>>) => {
+      const newMessage: OutreachMessage = 'id' in action.payload 
+        ? action.payload as OutreachMessage
+        : {
+            ...action.payload,
+            id: `msg_${Date.now()}_${Math.random()}`,
+          };
       state.items.unshift(newMessage);
     },
     updateMessage: (state, action: PayloadAction<{ id: string; updates: Partial<OutreachMessage> }>) => {
@@ -39,7 +41,7 @@ const messagesSlice = createSlice({
     },
     updateMessageStatus: (
       state,
-      action: PayloadAction<{ id: string; status: MessageStatus; sentAt?: Date | null; errorMessage?: string | null }>
+      action: PayloadAction<{ id: string; status: MessageStatus; sentAt?: string | Date | null; errorMessage?: string | null }>
     ) => {
       const message = state.items.find(m => m.id === action.payload.id);
       if (message) {

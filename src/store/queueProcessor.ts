@@ -58,15 +58,15 @@ export const processMessageQueue = () => {
       
       if (!queuedMessage) continue;
       
+      const messageId = queuedMessage.id;
+      
       // Move to sending
       store.dispatch(updateMessageStatus({
-        id: queuedMessage.id,
+        id: messageId,
         status: 'sending',
       }));
       
-      // Simulate network send with random delay
-      const sendDelay = 400 + Math.random() * 800;
-      
+      // Simulate network send with 2 second delay
       setTimeout(() => {
         // 10% chance of failure
         const failed = Math.random() < 0.1;
@@ -74,7 +74,7 @@ export const processMessageQueue = () => {
         if (failed) {
           // Mark as failed
           store.dispatch(updateMessageStatus({
-            id: queuedMessage.id,
+            id: messageId,
             status: 'failed',
             errorMessage: 'Rate limit exceeded',
           }));
@@ -82,14 +82,14 @@ export const processMessageQueue = () => {
         } else {
           // Mark as sent
           store.dispatch(updateMessageStatus({
-            id: queuedMessage.id,
+            id: messageId,
             status: 'sent',
-            sentAt: new Date(),
+            sentAt: new Date().toISOString(),
           }));
           store.dispatch(incrementSentCount(campaign.id));
           store.dispatch(incrementSentToday(accountId));
         }
-      }, sendDelay);
+      }, 2000);
     }
   }
 };

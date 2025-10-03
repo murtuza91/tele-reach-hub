@@ -86,19 +86,33 @@ export default function Campaigns() {
       toast({ title: 'Cannot send', description: 'Campaign is not running', variant: 'destructive' });
       return;
     }
-    const eligibleAccountId = campaign.accountIds.find((id: string) => canSendFromAccount(id));
-    if (!eligibleAccountId) {
-      toast({ title: 'No eligible account', description: 'All accounts are ineligible right now', variant: 'destructive' });
+    if (campaign.sentCount >= campaign.targetCount) {
+      toast({ title: 'Target reached', description: 'Campaign has already reached its target count', variant: 'destructive' });
       return;
     }
 
-    // optimistic updates: increment sent and account sentToday, add sending message
-    dispatch(updateCampaign({ id: campaignId, updates: { sentCount: campaign.sentCount + 1 } }));
-    const acc = accounts.find((a: { id: string }) => a.id === eligibleAccountId)!;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    dispatch(updateAccount({ id: acc.id, updates: { sentToday: Math.min(acc.dailyLimit, acc.sentToday + 1), settings: { ...acc.settings, lastSentAt: new Date() as any } } }));
+    // Find an eligible account that's not already sending for this campaign
+    const eligibleAccountId = campaign.accountIds.find((id: string) => {
+      if (!canSendFromAccount(id)) return false;
 
+      // Check if this account already has a "sending" message for this campaign
+      const alreadySending = messages.find(m =>
+        m.campaignId === campaignId &&
+        m.accountId === id &&
+        m.status === 'sending'
+      );
+      return !alreadySending;
+    });
+
+    if (!eligibleAccountId) {
+      toast({ title: 'No eligible account', description: 'All accounts are at daily limit or already sending', variant: 'destructive' });
+      return;
+    }
+
+    // Create message with explicit ID
+    const messageId = `msg_${Date.now()}_${Math.random()}`;
     const optimistic = {
+      id: messageId,
       campaignId,
       accountId: eligibleAccountId,
       recipientName: 'Manual Recipient',
@@ -108,29 +122,22 @@ export default function Campaigns() {
       sentAt: null,
       errorMessage: null,
     };
-    dispatch(addMessage(optimistic));
 
     // capture rollback snapshots
     const prevSent = campaign.sentCount;
-    const prevSentToday = acc.sentToday;
+    const prevSentToday = accounts.find((a: { id: string }) => a.id === eligibleAccountId)!.sentToday;
 
-    const shouldFail = Math.random() < 0.15;
+    // optimistic updates: increment sent and account sentToday, add sending message
+    dispatch(updateCampaign({ id: campaignId, updates: { sentCount: campaign.sentCount + 1 } }));
+    const acc = accounts.find((a: { id: string }) => a.id === eligibleAccountId)!;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    dispatch(updateAccount({ id: acc.id, updates: { sentToday: Math.min(acc.dailyLimit, acc.sentToday + 1), settings: { ...acc.settings, lastSentAt: new Date() as any } } }));
+    dispatch(addMessage(optimistic));
+
     setTimeout(() => {
-      // find the latest message we just added (approx by accountId + status sending)
-      const latest = messages.find((m: { campaignId: string; accountId: string; status: string }) => m.campaignId === campaignId && m.accountId === eligibleAccountId && m.status === 'sending');
-      if (!latest) return;
-
-      if (shouldFail) {
-        dispatch(updateMessage({ id: latest.id, updates: { status: 'failed', errorMessage: 'Mock send failed' } }));
-        // rollback optimistic counters
-        dispatch(updateCampaign({ id: campaignId, updates: { sentCount: prevSent } }));
-        dispatch(updateAccount({ id: acc.id, updates: { sentToday: prevSentToday, settings: { ...acc.settings } } }));
-        toast({ title: 'Send failed', description: 'Message failed to send. Changes rolled back.', variant: 'destructive' });
-      } else {
-        dispatch(updateMessage({ id: latest.id, updates: { status: 'sent', sentAt: new Date(), errorMessage: null } }));
-        toast({ title: 'Message sent', description: `Sent via @${acc.handle}` });
-      }
-    }, 600 + Math.random() * 800);
+      dispatch(updateMessage({ id: messageId, updates: { status: 'sent', sentAt: new Date().toISOString(), errorMessage: null } }));
+      toast({ title: 'Message sent', description: `Sent via @${acc.handle}` });
+    }, 2000);
   };
 
   const getStatusColor = (status: CampaignStatus) => {
@@ -205,8 +212,8 @@ export default function Campaigns() {
           </Card>
         ) : (
           filteredCampaigns.map((campaign) => {
-            const progress = campaign.targetCount > 0 
-              ? (campaign.sentCount / campaign.targetCount) * 100 
+            const progress = campaign.targetCount > 0
+              ? (campaign.sentCount / campaign.targetCount) * 100
               : 0;
             const campaignMessages = messages.filter((m: { campaignId: string }) => m.campaignId === campaign.id);
 
@@ -290,24 +297,34 @@ export default function Campaigns() {
                     <div className="border-t pt-4">
                       <p className="text-sm font-medium mb-3">Recent Messages</p>
                       <div className="space-y-2">
-                        {campaignMessages.slice(0, 3).map((message) => (
-                          <div
-                            key={message.id}
-                            className="flex items-center justify-between text-sm border rounded-md p-2"
-                          >
-                            <div className="flex items-center gap-3">
-                              <Badge variant={message.status === 'sent' ? 'default' : message.status === 'failed' ? 'destructive' : 'secondary'}>
-                                {message.status}
-                              </Badge>
-                              <span>{message.recipientName}</span>
-                              <span className="text-muted-foreground hidden sm:inline">•</span>
-                              <span className="text-muted-foreground hidden sm:inline">{message.recipientCompany}</span>
+                        {campaignMessages.slice(0, 5).map((message) => {
+                          const account = accounts.find((a) => a.id === message.accountId);
+                          return (
+                            <div
+                              key={message.id}
+                              className="flex items-center justify-between text-sm border rounded-md p-3"
+                            >
+                              <div className="flex items-center gap-3 flex-1">
+                                <Badge variant={message.status === 'sent' ? 'default' : message.status === 'failed' ? 'destructive' : 'secondary'}>
+                                  {message.status}
+                                </Badge>
+                                <div className="flex flex-col flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">To: {message.recipientName}</span>
+                                    <span className="text-muted-foreground">•</span>
+                                    <span className="text-sm text-muted-foreground">@{account?.handle || 'Unknown'}</span>
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">
+                                    {message.recipientCompany}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-muted-foreground text-xs whitespace-nowrap ml-2">
+                                {message.sentAt ? new Date(message.sentAt).toLocaleTimeString() : 'Queued'}
+                              </span>
                             </div>
-                            <span className="text-muted-foreground text-xs">
-                              {message.sentAt ? new Date(message.sentAt).toLocaleTimeString() : 'Scheduled'}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}

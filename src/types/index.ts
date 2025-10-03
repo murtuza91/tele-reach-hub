@@ -64,8 +64,8 @@ export interface OutreachMessage {
   recipientName: string;
   recipientCompany: string;
   status: MessageStatus;
-  scheduledFor: Date;
-  sentAt: Date | null;
+  scheduledFor: Date | string;
+  sentAt: Date | string | null;
   errorMessage: string | null;
 }
 
