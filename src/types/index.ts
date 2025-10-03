@@ -4,6 +4,7 @@ export interface TelegramAccount {
   id: string;
   handle: string;
   displayName: string;
+  phoneNumber?: string;
   status: AccountStatus;
   dailyLimit: number;
   sentToday: number;
@@ -12,11 +13,10 @@ export interface TelegramAccount {
 
 export interface AccountSettings {
   delaySeconds: number;
-  dailyLimit: number;
-  activeCopySetId: string | null;
+  activeTemplateId: string | null;
   activePromptId: string | null;
   respectQuietHours: boolean;
-  lastSentAt: Date | null;
+  lastSentAt?: Date;
 }
 
 export interface CopyTemplate {
@@ -24,7 +24,8 @@ export interface CopyTemplate {
   title: string;
   body: string;
   isActive: boolean;
-  createdAt: Date;
+  isDefault: boolean;
+  createdAt: string;
 }
 
 export interface AIPrompt {
@@ -32,7 +33,8 @@ export interface AIPrompt {
   title: string;
   systemPrompt: string;
   isActive: boolean;
-  createdAt: Date;
+  isDefault: boolean;
+  createdAt: string;
 }
 
 export type CampaignStatus = "draft" | "running" | "paused" | "completed" | "cancelled";
@@ -41,16 +43,16 @@ export interface Campaign {
   id: string;
   name: string;
   status: CampaignStatus;
-  accountIds: string[];
   templateId: string;
-  promptId: string;
+  promptId?: string;
+  accountIds: string[];
   targetCount: number;
   sentCount: number;
-  failedCount: number;
   queuedCount: number;
-  createdAt: Date;
-  startedAt: Date | null;
-  completedAt: Date | null;
+  failedCount: number;
+  createdAt: string;
+  startedAt?: string;
+  endedAt?: string;
 }
 
 export type MessageStatus = "queued" | "sending" | "sent" | "failed";

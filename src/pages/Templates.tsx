@@ -1,12 +1,97 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Copy, Edit, Trash2 } from "lucide-react";
-import { mockTemplates, mockPrompts } from "@/lib/mockData";
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Plus, Edit, Trash2, Star } from 'lucide-react';
+import { useApp } from '@/contexts/AppContext';
+import { TemplateDialog } from '@/components/templates/TemplateDialog';
+import { PromptDialog } from '@/components/templates/PromptDialog';
+import { CopyTemplate, AIPrompt } from '@/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from '@/hooks/use-toast';
 
-const Templates = () => {
+export default function Templates() {
+  const { templates, prompts, deleteTemplate, deletePrompt, updateTemplate, updatePrompt } = useApp();
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [promptDialogOpen, setPromptDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<CopyTemplate | undefined>();
+  const [editingPrompt, setEditingPrompt] = useState<AIPrompt | undefined>();
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: 'template' | 'prompt'; id: string; title: string }>({
+    open: false,
+    type: 'template',
+    id: '',
+    title: '',
+  });
+
+  const handleEditTemplate = (template: CopyTemplate) => {
+    setEditingTemplate(template);
+    setTemplateDialogOpen(true);
+  };
+
+  const handleEditPrompt = (prompt: AIPrompt) => {
+    setEditingPrompt(prompt);
+    setPromptDialogOpen(true);
+  };
+
+  const handleNewTemplate = () => {
+    setEditingTemplate(undefined);
+    setTemplateDialogOpen(true);
+  };
+
+  const handleNewPrompt = () => {
+    setEditingPrompt(undefined);
+    setPromptDialogOpen(true);
+  };
+
+  const handleDelete = () => {
+    if (deleteDialog.type === 'template') {
+      deleteTemplate(deleteDialog.id);
+      toast({
+        title: "Template deleted",
+        description: `"${deleteDialog.title}" has been removed`,
+      });
+    } else {
+      deletePrompt(deleteDialog.id);
+      toast({
+        title: "Prompt deleted",
+        description: `"${deleteDialog.title}" has been removed`,
+      });
+    }
+    setDeleteDialog({ open: false, type: 'template', id: '', title: '' });
+  };
+
+  const handleSetDefault = (type: 'template' | 'prompt', id: string) => {
+    if (type === 'template') {
+      templates.forEach(t => {
+        if (t.id === id) {
+          updateTemplate(t.id, { isDefault: true });
+        } else if (t.isDefault) {
+          updateTemplate(t.id, { isDefault: false });
+        }
+      });
+      toast({ title: "Default template updated" });
+    } else {
+      prompts.forEach(p => {
+        if (p.id === id) {
+          updatePrompt(p.id, { isDefault: true });
+        } else if (p.isDefault) {
+          updatePrompt(p.id, { isDefault: false });
+        }
+      });
+      toast({ title: "Default prompt updated" });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -26,98 +111,177 @@ const Templates = () => {
 
         <TabsContent value="templates" className="space-y-4">
           <div className="flex justify-end">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button className="gap-2" onClick={handleNewTemplate}>
+              <Plus className="h-4 w-4" />
               New Template
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {mockTemplates.map((template) => (
-              <Card key={template.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{template.title}</CardTitle>
-                    {template.isActive && (
-                      <Badge className="bg-success text-success-foreground">
-                        Active
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-muted rounded-md p-3 text-sm font-mono whitespace-pre-wrap max-h-[200px] overflow-y-auto">
-                    {template.body}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Created {template.createdAt.toLocaleDateString()}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Edit className="mr-2 h-3 w-3" />
-                      Edit
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {templates.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <p className="text-muted-foreground mb-4">No templates created yet</p>
+                <Button onClick={handleNewTemplate}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Your First Template
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {templates.map((template) => (
+                <Card key={template.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg">{template.title}</CardTitle>
+                          {template.isDefault && <Star className="h-4 w-4 fill-warning text-warning" />}
+                        </div>
+                        <CardDescription>
+                          Created {new Date(template.createdAt).toLocaleDateString()}
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-2 items-start">
+                        <Badge variant={template.isActive ? 'default' : 'secondary'}>
+                          {template.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleSetDefault('template', template.id)}
+                          title="Set as default"
+                        >
+                          <Star className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditTemplate(template)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteDialog({ open: true, type: 'template', id: template.id, title: template.title })}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <pre className="text-sm bg-muted p-3 rounded-md overflow-x-auto font-mono whitespace-pre-wrap">
+                      {template.body}
+                    </pre>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="prompts" className="space-y-4">
           <div className="flex justify-end">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
+            <Button className="gap-2" onClick={handleNewPrompt}>
+              <Plus className="h-4 w-4" />
               New Prompt
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {mockPrompts.map((prompt) => (
-              <Card key={prompt.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{prompt.title}</CardTitle>
-                    {prompt.isActive && (
-                      <Badge className="bg-success text-success-foreground">
-                        Active
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-muted rounded-md p-3 text-sm">
-                    {prompt.systemPrompt}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Created {prompt.createdAt.toLocaleDateString()}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Edit className="mr-2 h-3 w-3" />
-                      Edit
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {prompts.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <p className="text-muted-foreground mb-4">No AI prompts created yet</p>
+                <Button onClick={handleNewPrompt}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Your First Prompt
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {prompts.map((prompt) => (
+                <Card key={prompt.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg">{prompt.title}</CardTitle>
+                          {prompt.isDefault && <Star className="h-4 w-4 fill-warning text-warning" />}
+                        </div>
+                        <CardDescription>
+                          Created {new Date(prompt.createdAt).toLocaleDateString()}
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-2 items-start">
+                        <Badge variant={prompt.isActive ? 'default' : 'secondary'}>
+                          {prompt.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleSetDefault('prompt', prompt.id)}
+                          title="Set as default"
+                        >
+                          <Star className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditPrompt(prompt)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteDialog({ open: true, type: 'prompt', id: prompt.id, title: prompt.title })}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <pre className="text-sm bg-muted p-3 rounded-md overflow-x-auto font-mono whitespace-pre-wrap max-h-48">
+                      {prompt.systemPrompt}
+                    </pre>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
+
+      <TemplateDialog
+        open={templateDialogOpen}
+        onOpenChange={setTemplateDialogOpen}
+        template={editingTemplate}
+      />
+
+      <PromptDialog
+        open={promptDialogOpen}
+        onOpenChange={setPromptDialogOpen}
+        prompt={editingPrompt}
+      />
+
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{deleteDialog.title}". This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-};
-
-export default Templates;
+}
